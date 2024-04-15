@@ -1,0 +1,91 @@
+// datasource db defines the database connection settings.
+// It is configured for PostgreSQL and uses an environment variable for the connection URL.
+// The 'extensions' feature enables the use of PostgreSQL-specific data types.
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+}
+
+// generator db configures Prisma Client settings.
+// It is set up to use Prisma Client Python with asyncio interface and specific features.
+generator db {
+  provider             = "prisma-client-py"
+  interface            = "asyncio"
+  recursive_type_depth = 5
+  previewFeatures      = ["postgresqlExtensions"]
+}
+
+model User {
+  id        String   @id @default(dbgenerated("gen_random_uuid()"))
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  email     String   @unique
+  password  String
+  role      UserRole @default(REGULAR)
+
+  PasswordAnalyses PasswordAnalysis[]
+  ApiKey           ApiKey[]
+}
+
+model PasswordAnalysis {
+  id        String   @id @default(dbgenerated("gen_random_uuid()"))
+  createdAt DateTime @default(now())
+  password  String
+  score     Int
+  userId    String
+  User      User     @relation(fields: [userId], references: [id])
+
+  Suggestions               Suggestion[]
+  BreachCheckResult         BreachCheckResult[]
+  CommonPasswordCheckResult CommonPasswordCheckResult[]
+}
+
+model Suggestion {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()"))
+  createdAt          DateTime         @default(now())
+  text               String
+  passwordAnalysis   PasswordAnalysis @relation(fields: [passwordAnalysisId], references: [id])
+  passwordAnalysisId String
+}
+
+model BreachCheckResult {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()"))
+  createdAt          DateTime         @default(now())
+  breached           Boolean
+  source             String?
+  passwordAnalysisId String
+  passwordAnalysis   PasswordAnalysis @relation(fields: [passwordAnalysisId], references: [id])
+}
+
+model CommonPasswordCheckResult {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()"))
+  createdAt          DateTime         @default(now())
+  isCommon           Boolean
+  passwordAnalysisId String
+  passwordAnalysis   PasswordAnalysis @relation(fields: [passwordAnalysisId], references: [id])
+}
+
+model ApiKey {
+  id        String   @id @default(dbgenerated("gen_random_uuid()"))
+  createdAt DateTime @default(now())
+  key       String   @unique
+  userId    String?
+  User      User?    @relation(fields: [userId], references: [id])
+
+  Requests Log[]
+}
+
+model Log {
+  id        String   @id @default(dbgenerated("gen_random_uuid()"))
+  createdAt DateTime @default(now())
+  endpoint  String
+  apiKeyId  String
+  ApiKey    ApiKey   @relation(fields: [apiKeyId], references: [id])
+}
+
+enum UserRole {
+  REGULAR
+  PREMIUM
+  ADMIN
+}
+
